@@ -12,37 +12,90 @@
 #define HASH_LEN 33     // Length of hash plus one for null.
 
 
+int compareStrings(const void *a, const void *b)
+{
+    return strcmp(*(const char **)a, *(const char **)b);
+}
+
+char *exactMatchSearch(char *target, char **arr, int size)
+{
+    for(int i = 0; i < size; i++)
+    {
+        if(strcmp(arr[i], target) == 0)
+        {
+            return arr[i];
+        }
+    }
+    return NULL;
+}
+
+char *binarySearch(char *target, char **arr, int size)
+{
+    int left = 0, right = size - 1;
+
+    do
+    {
+        int mid = left + (right - left) / 2;
+        int cmp = strcmp(arr[mid], target);
+        if (cmp == 0) return arr[mid];
+        if (cmp < 0) left = mid + 1;
+        else right = mid - 1;
+    }
+    while(left <= right);
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
-    if (argc < 3) 
+    if(argc < 3)
     {
         printf("Usage: %s hash_file dictionary_file\n", argv[0]);
         exit(1);
     }
 
-    // TODO: Read the hashes file into an array.
-    //   Use either a 2D array or an array of arrays.
-    //   Use the loadFile function from fileutil.c
-    //   Uncomment the appropriate statement.
     int size;
-    //char (*hashes)[HASH_LEN] = loadFile(argv[1], &size);
-    //char **hashes = loadFile(argv[1], &size);
-    
-    // CHALLENGE1: Sort the hashes using qsort.
-    
-    // TODO
-    // Open the password file for reading.
+    char **hashes = loadFileAA(argv[1], &size);
+    if(!hashes)
+    {
+        printf("Failed to load hashes\n");
+        exit(1);
+    }
 
-    // TODO
-    // For each password, hash it, then use the array search
-    // function from fileutil.h to find the hash.
-    // If you find it, display the password and the hash.
-    // Keep track of how many hashes were found.
-    // CHALLENGE1: Use binary search instead of linear search.
+    qsort(hashes, size, sizeof(char *), compareStrings);
 
-    // TODO
-    // When done with the file:
-    //   Close the file
-    //   Display the number of hashes found.
-    //   Free up memory.
+    FILE *dictFile = fopen(argv[2], "r");
+    if(!dictFile)
+    {
+        printf("Could not open dictionary file\n");
+        freeAA(hashes, size);
+        exit(1);
+    }
+
+    int crackedCount = 0;
+    char word[PASS_LEN];
+
+    while(fgets(word, PASS_LEN, dictFile))
+    {
+        word[strcspn(word, "\n")] = '\0';
+
+        char *computedHash = md5(word, strlen(word));
+        if(!computedHash)
+        {
+            printf("Failed to compute hash for %s\n", word);
+            continue;
+        }
+
+        char *foundHash = binarySearch(computedHash, hashes, size);
+        if(foundHash)
+        {
+            printf("%s %s\n", computedHash, word);
+            crackedCount++;
+        }
+
+        free(computedHash);
+    }
+
+    fclose(dictFile);
+    freeAA(hashes, size);
+    printf("%d hashes cracked!\n", crackedCount);
 }
